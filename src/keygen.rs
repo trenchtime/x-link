@@ -24,27 +24,18 @@ impl Keygen {
         Ok(Self::from(seed))
     }
 
-    pub fn hash(handle: &str) -> [u8; 32] {
-        let mut hasher = sha2::Sha256::new();
+    pub fn seed_for_handle(secret: [u8; 64], handle: &str) -> [u8; 64] {
+        let mut hasher = sha2::Sha512::new();
+        hasher.update(secret);
         hasher.update(handle.as_bytes());
         hasher.finalize().into()
-    }
-
-    pub fn seed_for_handle(
-        secret: [u8; 64],
-        handle: &str,
-    ) -> Result<[u8; 96], Box<dyn std::error::Error>> {
-        let mut seed = [0u8; 96];
-        seed[..64].copy_from_slice(&secret);
-        seed[64..96].copy_from_slice(&Self::hash(handle));
-        Ok(seed)
     }
 
     pub fn generate_key_inner(
         secret: [u8; 64],
         handle: &str,
     ) -> Result<Keypair, Box<dyn std::error::Error>> {
-        Keypair::from_seed(Self::seed_for_handle(secret, handle)?.as_slice())
+        Keypair::from_seed(&Self::seed_for_handle(secret, handle))
     }
 
     pub fn generate_key(&self, handle: &str) -> Result<XKey, Box<dyn std::error::Error>> {
@@ -92,13 +83,18 @@ mod tests {
     #[test]
     fn test_x_key() {
         const HANDLE: &str = "@burckmeister";
+        const OTHER_HANDLE: &str = "@somefag";
         const SECRET: &[u8; 64] =
             b"What the fuck did you just fucking say about me you little bitch";
         const EXPECTED: Pubkey =
-            Pubkey::from_str_const("2gs6bd3SieSs5KaE92c1d8RcnDk38AR2AMgJPvJCazTP");
+            Pubkey::from_str_const("8C4ygxmS69xS3LA5Z5gHTU5S2NR9cAKbMThftXoZMEHe");
 
         let keygen = Keygen::from(*SECRET);
         let keypair = keygen.generate_key(HANDLE).expect("Error generating key");
         assert_eq!(keypair.pubkey(), EXPECTED);
+        let other_keypair = keygen
+            .generate_key(OTHER_HANDLE)
+            .expect("Error generating key");
+        assert_ne!(other_keypair.pubkey(), EXPECTED);
     }
 }
