@@ -130,18 +130,21 @@ mod tests {
 
     #[test]
     fn test_x_key_from_id() {
-        const ID: u64 = 1722992406616756224;
-        const OTHER_HANDLE: u64 = ID + 1;
         const SECRET: &[u8; 64] =
             b"What the fuck did you just fucking say about me you little bitch";
         const EXPECTED: Pubkey =
             Pubkey::from_str_const("ENuzcbEgZq9j9BQCSgsFfvnMeX8aY7xGDizGyf29eByN");
 
+        const ID: u64 = 1722992406616756224;
+        const OTHER_HANDLE: u64 = ID + 1;
+
         let keygen = KeyGen::from(*SECRET);
+
         let keypair = keygen
             .key_from_id(ID)
             .expect("Error generating key");
         assert_eq!(keypair.pubkey(), EXPECTED);
+
         let other_keypair = keygen
             .key_from_id(OTHER_HANDLE)
             .expect("Error generating key");
