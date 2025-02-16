@@ -62,7 +62,7 @@ impl Backend {
         let request = SwapRequest {
             user_public_key: account.pubkey(),
             quote_response: quote,
-            config: TransactionConfig::default(),
+            config: self.transaction_config(),
         };
         self.client
             .swap_instructions(&request)
