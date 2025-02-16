@@ -6,6 +6,15 @@ pub struct Account {
     pub wallet: Keypair,
 }
 
+impl std::fmt::Debug for Account {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Account")
+            .field("twitter_id", &self.twitter_id)
+            .field("wallet", &self.wallet.pubkey().to_string())
+            .finish()
+    }
+}
+
 impl Account {
     pub fn new(twitter_id: u64, wallet: Keypair) -> Self {
         Self { twitter_id, wallet }

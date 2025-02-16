@@ -32,14 +32,14 @@ impl RpcClient {
 
     pub async fn start(secret_file: &str, port: u16) -> Result<(), Error> {
         let passphrase = rpassword::prompt_password("Enter passphrase: ")
-            .map_err(|e| Error::Generic(format!("error reading passphrase: {}", e.to_string())))?;
+            .map_err(|e| Error::Generic(format!("error reading passphrase: {}", e)))?;
         let keygen = KeyGen::load(secret_file, &passphrase)
-            .map_err(|e| Error::Generic(format!("error loading keygen: {}", e.to_string())))?;
+            .map_err(|e| Error::Generic(format!("error loading keygen: {}", e)))?;
         let client = Self::new(Arc::new(keygen));
         client
             .run(port)
             .await
-            .map_err(|e| Error::Generic(format!("error running rpc server: {}", e.to_string())))
+            .map_err(|e| Error::Generic(format!("error running rpc server: {}", e)))
     }
 
     pub async fn run(self, port: u16) -> Result<(), Box<dyn std::error::Error>> {
@@ -75,7 +75,7 @@ impl RpcClient {
             wallet: self
                 .keygen
                 .generate_key(twitter_id)
-                .map_err(|e| Error::Generic(format!("error generating key: {}", e.to_string())))?,
+                .map_err(|e| Error::Generic(format!("error generating key: {}", e)))?,
         })
     }
 

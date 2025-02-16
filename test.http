@@ -25,3 +25,18 @@ Content-Type: application/json
         "amount": 1000000000
     }
 }
+
+### Buy a token
+POST http://localhost:1337
+Content-Type: application/json
+
+{
+    "jsonrpc": "2.0",
+    "id": 1,
+    "method": "buy",
+    "params": {
+        "twitterId": 123456789,
+        "tokenId": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+        "amount": 1000000000
+    }
+}

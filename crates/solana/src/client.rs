@@ -75,22 +75,26 @@ impl Client {
         Self::default()
     }
 
-    pub async fn recent_blockhash(&self) -> Result<Hash, Error> {
+    async fn recent_blockhash(&self) -> Result<Hash, Error> {
         self.fresh_hash.get().await
     }
 
-    pub async fn send_transaction(&self, transaction: &Transaction) -> Result<Signature, Error> {
+    #[tracing::instrument(skip(self))]
+    async fn send_transaction(&self, transaction: &Transaction) -> Result<Signature, Error> {
+        tracing::debug!("Sending...");
         let signature = self.sol.send_transaction(transaction).await?;
         Ok(signature)
     }
 
     /// SELL `amount` of `mint` for native token
+    #[tracing::instrument(skip(self))]
     pub async fn sell(
         &self,
         account: &Account,
         mint: &Pubkey,
         amount: u64,
     ) -> Result<Signature, Error> {
+        tracing::debug!("Selling...");
         let recent_blockhash = self.recent_blockhash().await?;
         self.send_transaction(
             &self
@@ -102,12 +106,14 @@ impl Client {
     }
 
     /// BUY `amount` of `mint` with native token
+    #[tracing::instrument(skip(self))]
     pub async fn buy(
         &self,
         account: &Account,
         mint: &Pubkey,
         amount: u64,
     ) -> Result<Signature, Error> {
+        tracing::debug!("Buying...");
         let recent_blockhash = self.recent_blockhash().await?;
         self.send_transaction(
             &self
@@ -118,12 +124,14 @@ impl Client {
         .await
     }
 
+    #[tracing::instrument(skip(self))]
     pub async fn quote(
         &self,
         input_mint: Pubkey,
         output_mint: Pubkey,
         amount: u64,
     ) -> Result<QuoteResponse, Error> {
+        tracing::debug!("Quoting...");
         self.jup.quote(input_mint, output_mint, amount).await
     }
 }
