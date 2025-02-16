@@ -120,7 +120,6 @@ pub enum RpcResult {
     Ok,
     Account(Account),
     #[serde(serialize_with = "signature_serialize")]
-    #[serde(deserialize_with = "signature_deserialize")]
     Signature(Signature),
     Quote(QuoteResponse),
 }
