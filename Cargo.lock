@@ -5671,7 +5671,6 @@ dependencies = [
 name = "x-link-client"
 version = "0.1.0"
 dependencies = [
- "bip39",
  "bs58",
  "clap 4.5.28",
  "http-body-util",
@@ -5680,12 +5679,10 @@ dependencies = [
  "rpassword",
  "serde",
  "serde_json",
- "sha2 0.10.8",
  "solana-sdk",
  "thiserror 2.0.11",
  "tokio",
  "tracing",
- "tracing-subscriber",
  "x-link-solana",
  "x-link-types",
  "x-link-utils",
@@ -5696,20 +5693,13 @@ dependencies = [
 name = "x-link-solana"
 version = "0.1.0"
 dependencies = [
- "bip39",
- "bs58",
  "dashmap 6.1.0",
  "jupiter-swap-api-client",
- "serde",
- "serde_json",
- "sha2 0.10.8",
  "solana-client",
- "solana-program",
  "solana-sdk",
  "thiserror 2.0.11",
  "tokio",
  "tracing",
- "tracing-subscriber",
  "x-link-types",
 ]
 
@@ -5717,21 +5707,15 @@ dependencies = [
 name = "x-link-types"
 version = "0.1.0"
 dependencies = [
- "bip39",
- "bs58",
  "serde",
  "serde_json",
- "sha2 0.10.8",
  "solana-sdk",
- "tracing",
- "tracing-subscriber",
 ]
 
 [[package]]
 name = "x-link-utils"
 version = "0.1.0"
 dependencies = [
- "tracing",
  "tracing-subscriber",
 ]
 
@@ -5745,7 +5729,6 @@ dependencies = [
  "sha2 0.10.8",
  "solana-sdk",
  "tracing",
- "tracing-subscriber",
  "x-link-utils",
 ]
 

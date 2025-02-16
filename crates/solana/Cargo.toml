@@ -9,21 +9,12 @@ thiserror = { workspace = true }
 
 x-link-types = { workspace = true }
 
-# Json
-serde = { workspace = true }
-serde_json = { workspace = true }
-
 # Solana stuff
 solana-client = "2"
-solana-program = "2"
 solana-sdk = { workspace = true }
 jupiter-swap-api-client = {workspace = true }
-bip39 ={ workspace = true } 
-sha2 ={ workspace = true } 
-bs58 ={ workspace = true }
 dashmap = { workspace = true }
 
 # Logging
 tracing ={ workspace = true } 
-tracing-subscriber = { workspace = true, features = ["env-filter"] }
 

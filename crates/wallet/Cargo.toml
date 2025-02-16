@@ -17,4 +17,3 @@ sha2 ={ workspace = true}
 
 # Logging
 tracing ={ workspace = true} 
-tracing-subscriber = { workspace = true, features = ["env-filter"] }

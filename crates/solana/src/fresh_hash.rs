@@ -21,7 +21,10 @@ impl FreshHash {
 
     pub async fn get(&self) -> Result<Hash, Error> {
         let (tx, rx) = tokio::sync::oneshot::channel();
-        self.tx.send(tx).await.map_err(|e| Error::Generic(e.to_string()))?;
+        self.tx
+            .send(tx)
+            .await
+            .map_err(|e| Error::Generic(e.to_string()))?;
         rx.await.map_err(|e| Error::Generic(e.to_string()))
     }
 }
