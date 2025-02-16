@@ -1,5 +1,5 @@
-use crate::deserialize::pubkey_deserialize;
-use crate::serialize::pubkey_serialize;
+use crate::deserialize::{pubkey_deserialize, signature_deserialize};
+use crate::serialize::{pubkey_serialize, signature_serialize};
 use http_body_util::Full;
 use hyper::body::Bytes;
 use serde::{Deserialize, Serialize};
@@ -45,6 +45,9 @@ impl<'de> Deserialize<'de> for RpcRequest {
             "getAccount" => serde_json::from_value(raw.params)
                 .map(RpcParams::GetAccount)
                 .map_err(|e| D::Error::custom(format!("invalid getAccount params: {}", e)))?,
+            "quote" => serde_json::from_value(raw.params)
+                .map(RpcParams::Quote)
+                .map_err(|e| D::Error::custom(format!("invalid quote params: {}", e)))?,
             _ => return Err(D::Error::custom(format!("invalid method: {}", raw.method))),
         };
 
@@ -116,6 +119,8 @@ pub enum RpcResult {
     #[serde(rename = "ok")]
     Ok,
     Account(Account),
+    #[serde(serialize_with = "signature_serialize")]
+    #[serde(deserialize_with = "signature_deserialize")]
     Signature(Signature),
     Quote(QuoteResponse),
 }
@@ -166,7 +171,11 @@ pub struct SellParams {
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct QuoteParams {
+    #[serde(deserialize_with = "pubkey_deserialize")]
+    #[serde(serialize_with = "pubkey_serialize")]
     pub input_mint: Pubkey,
+    #[serde(deserialize_with = "pubkey_deserialize")]
+    #[serde(serialize_with = "pubkey_serialize")]
     pub output_mint: Pubkey,
     pub amount: u64,
 }

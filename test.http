@@ -1,3 +1,4 @@
+### Get account by Twitter ID
 POST http://localhost:1337
 Content-Type: application/json
 
@@ -7,5 +8,20 @@ Content-Type: application/json
     "method": "getAccount",
     "params": {
         "twitterId": 123456789
+    }
+}
+
+### Get a quote from the backend
+POST http://localhost:1337
+Content-Type: application/json
+
+{
+    "jsonrpc": "2.0",
+    "id": 1,
+    "method": "quote",
+    "params": {
+        "inputMint": "So11111111111111111111111111111111111111112",
+        "outputMint": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+        "amount": 1000000000
     }
 }
