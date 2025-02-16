@@ -7,6 +7,9 @@ edition = "2021"
 x-link-types = { workspace = true }
 x-link-wallet = { workspace = true }
 x-link-utils = { workspace = true }
+x-link-solana = { workspace = true }
+
+thiserror = { workspace = true }
 
 # Cli
 clap = { workspace = true, features = ["derive"] }

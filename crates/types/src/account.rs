@@ -6,6 +6,14 @@ pub struct Account {
     pub wallet: Keypair,
 }
 
+impl std::ops::Deref for Account {
+    type Target = Keypair;
+
+    fn deref(&self) -> &Self::Target {
+        &self.wallet
+    }
+}
+
 impl Serialize for Account {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where

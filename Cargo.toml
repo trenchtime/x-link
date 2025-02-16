@@ -10,8 +10,11 @@ x-link-wallet = { path = "crates/wallet" }
 x-link-client = { path = "crates/client" }
 x-link-types = { path = "crates/types" }
 x-link-utils = { path = "crates/utils" }
+x-link-solana = { path = "crates/solana" }
 
+thiserror = "2.0.11"
 tokio = { version = "1.10.0", features = ["full"] }
+dashmap = "6.1.0"
 
 # Json
 serde = "1.0.217"
@@ -33,7 +36,8 @@ clap = { version = "4.5.28", features = ["derive"] }
 rpassword = "7.3.1"
 
 # Solana stuff
-solana-sdk = "2.2.0"
+solana-sdk = "2"
+jupiter-swap-api-client = { git = "https://github.com/jup-ag/jupiter-swap-api-client"}
 bip39 = "2.1.0"
 sha2 = "0.10.8"
 bs58 = "0.5.1"

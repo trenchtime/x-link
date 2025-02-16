@@ -5,8 +5,11 @@ use std::sync::Arc;
 use http_body_util::{BodyExt, Full};
 use hyper::body::{Buf, Bytes};
 use hyper::Response;
+use solana_sdk::signature::Signature;
 use x_link_types::account::Account;
 use x_link_wallet::keygen::{KeyGen, KeyGenerator as _};
+
+use crate::error::Error;
 
 use crate::message::{
     BuyParams, CreateParams, GetAccountParams, RpcParams, RpcRequest, RpcResponse, SellParams,
@@ -15,18 +18,27 @@ use crate::message::{
 #[derive(Clone)]
 pub struct RpcClient {
     keygen: Arc<KeyGen>,
+    solana: Arc<x_link_solana::client::Client>,
 }
 
 impl RpcClient {
     pub fn new(keygen: Arc<KeyGen>) -> Self {
-        Self { keygen }
+        Self {
+            keygen,
+            solana: Arc::new(x_link_solana::client::Client::default()),
+        }
     }
 
-    pub async fn start(secret_file: &str, port: u16) -> Result<(), Box<dyn std::error::Error>> {
-        let passphrase = rpassword::prompt_password("Enter passphrase: ")?;
-        let keygen = KeyGen::load(secret_file, &passphrase)?;
+    pub async fn start(secret_file: &str, port: u16) -> Result<(), Error> {
+        let passphrase = rpassword::prompt_password("Enter passphrase: ")
+            .map_err(|e| Error::Generic(format!("error reading passphrase: {}", e.to_string())))?;
+        let keygen = KeyGen::load(secret_file, &passphrase)
+            .map_err(|e| Error::Generic(format!("error loading keygen: {}", e.to_string())))?;
         let client = Self::new(Arc::new(keygen));
-        client.run(port).await
+        client
+            .run(port)
+            .await
+            .map_err(|e| Error::Generic(format!("error running rpc server: {}", e.to_string())))
     }
 
     pub async fn run(self, port: u16) -> Result<(), Box<dyn std::error::Error>> {
@@ -56,19 +68,56 @@ impl RpcClient {
         )
     }
 
-    fn get_account_by_id(&self, twitter_id: u64) -> Result<Account, Box<dyn std::error::Error>> {
+    fn get_account_by_id(&self, twitter_id: u64) -> Result<Account, Error> {
         Ok(Account {
             twitter_id,
-            wallet: self.keygen.generate_key(twitter_id)?,
+            wallet: self
+                .keygen
+                .generate_key(twitter_id)
+                .map_err(|e| Error::Generic(format!("error generating key: {}", e.to_string())))?,
         })
     }
 
-    fn handle_buy(&self, id: u64, params: BuyParams) -> RpcResponse {
-        todo!()
+    async fn handle_buy_inner(
+        &self,
+        account: Account,
+        params: BuyParams,
+    ) -> Result<Signature, Error> {
+        Ok(self
+            .solana
+            .buy(&account, &params.token_id, params.amount)
+            .await?)
     }
 
-    fn handle_sell(&self, id: u64, params: SellParams) -> RpcResponse {
-        todo!()
+    async fn handle_sell_inner(
+        &self,
+        account: Account,
+        params: SellParams,
+    ) -> Result<Signature, Error> {
+        Ok(self
+            .solana
+            .sell(&account, &params.token_id, params.amount)
+            .await?)
+    }
+
+    async fn handle_buy(&self, id: u64, params: BuyParams) -> RpcResponse {
+        match self.get_account_by_id(params.twitter_id) {
+            Ok(account) => match self.handle_buy_inner(account, params).await {
+                Ok(signature) => RpcResponse::ok(id).with_signature(signature),
+                Err(e) => RpcResponse::error(id, &e.to_string()),
+            },
+            Err(e) => RpcResponse::error(id, &e.to_string()),
+        }
+    }
+
+    async fn handle_sell(&self, id: u64, params: SellParams) -> RpcResponse {
+        match self.get_account_by_id(params.twitter_id) {
+            Ok(account) => match self.handle_sell_inner(account, params).await {
+                Ok(signature) => RpcResponse::ok(id).with_signature(signature),
+                Err(e) => RpcResponse::error(id, &e.to_string()),
+            },
+            Err(e) => RpcResponse::error(id, &e.to_string()),
+        }
     }
 
     fn handle_create(&self, id: u64, params: CreateParams) -> RpcResponse {
@@ -77,17 +126,17 @@ impl RpcClient {
 
     fn handle_get_account(&self, id: u64, params: GetAccountParams) -> RpcResponse {
         match self.get_account_by_id(params.twitter_id) {
-            Ok(account) => RpcResponse::ok(id).with_result(account),
+            Ok(account) => RpcResponse::ok(id).with_account(account),
             Err(e) => RpcResponse::error(id, &e.to_string()),
         }
     }
 
     #[tracing::instrument(skip(self))]
-    fn handle(&self, req: RpcRequest) -> RpcResponse {
+    async fn handle(&self, req: RpcRequest) -> RpcResponse {
         tracing::debug!("handling request");
         match req.params {
-            RpcParams::Buy(params) => self.handle_buy(req.id, params),
-            RpcParams::Sell(params) => self.handle_sell(req.id, params),
+            RpcParams::Buy(params) => self.handle_buy(req.id, params).await,
+            RpcParams::Sell(params) => self.handle_sell(req.id, params).await,
             RpcParams::Create(params) => self.handle_create(req.id, params),
             RpcParams::GetAccount(params) => self.handle_get_account(req.id, params),
         }
@@ -108,7 +157,7 @@ impl hyper::service::Service<hyper::Request<hyper::body::Incoming>> for RpcClien
                     Ok(body) => {
                         let whole_body = body.aggregate();
                         match serde_json::from_reader(whole_body.reader()) {
-                            Ok(req) => Ok(handler.handle(req).into()),
+                            Ok(req) => Ok(handler.handle(req).await.into()),
 
                             Err(e) => Ok(RpcResponse::error(u64::MAX, &e.to_string()).into()),
                         }

@@ -3,7 +3,7 @@ use crate::serialize::pubkey_serialize;
 use http_body_util::Full;
 use hyper::body::Bytes;
 use serde::{Deserialize, Serialize};
-use solana_sdk::pubkey::Pubkey;
+use solana_sdk::{pubkey::Pubkey, signature::Signature};
 use x_link_types::account::Account;
 
 #[derive(Serialize, Debug)]
@@ -92,8 +92,13 @@ impl RpcResponse {
         }
     }
 
-    pub fn with_result(mut self, result: Account) -> Self {
-        self.result = Some(RpcResult::Account(result));
+    pub fn with_account(mut self, account: Account) -> Self {
+        self.result = Some(RpcResult::Account(account));
+        self
+    }
+
+    pub fn with_signature(mut self, signature: Signature) -> Self {
+        self.result = Some(RpcResult::Signature(signature));
         self
     }
 }
@@ -105,6 +110,7 @@ pub enum RpcResult {
     #[serde(rename = "ok")]
     Ok,
     Account(Account),
+    Signature(Signature),
 }
 
 #[derive(Serialize)]

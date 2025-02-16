@@ -1,4 +1,4 @@
-use crate::client::RpcClient;
+use crate::{client::RpcClient, error::Error};
 
 #[derive(clap::Parser)]
 pub struct Args {
@@ -10,7 +10,7 @@ pub struct Args {
 }
 
 impl Args {
-    pub async fn run(&self) -> Result<(), Box<dyn std::error::Error>> {
+    pub async fn run(&self) -> Result<(), Error> {
         RpcClient::start(&self.secret_file, self.port).await
     }
 }

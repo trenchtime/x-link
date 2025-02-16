@@ -1,8 +1,5 @@
 use sha2::Digest;
-use solana_sdk::{
-    derivation_path::DerivationPath,
-    signer::{keypair::Keypair, SeedDerivable as _},
-};
+use solana_sdk::{derivation_path::DerivationPath, signature::Keypair, signer::SeedDerivable as _};
 
 pub struct KeyGen([u8; 64]);
 
@@ -57,10 +54,7 @@ impl KeyGen {
         Keypair::from_seed(&Self::seed_for_handle(secret, handle))
     }
 
-    fn key_from_id_inner(
-        secret: [u8; 64],
-        id: u64,
-    ) -> Result<Keypair, Box<dyn std::error::Error>> {
+    fn key_from_id_inner(secret: [u8; 64], id: u64) -> Result<Keypair, Box<dyn std::error::Error>> {
         let id_bytes = id.to_be_bytes();
         let account = u32::from_be_bytes(id_bytes[0..4].try_into()?);
         let change = u32::from_be_bytes(id_bytes[4..8].try_into()?);
@@ -71,7 +65,9 @@ impl KeyGen {
 
 #[cfg(test)]
 mod tests {
-    use solana_sdk::{pubkey::Pubkey, signer::Signer};
+    use solana_sdk::pubkey;
+    use solana_sdk::pubkey::Pubkey;
+    use solana_sdk::signer::Signer as _;
 
     use super::*;
 
@@ -79,8 +75,7 @@ mod tests {
     fn test_x_key_from_id() {
         const SECRET: &[u8; 64] =
             b"What the fuck did you just fucking say about me you little bitch";
-        const EXPECTED: Pubkey =
-            Pubkey::from_str_const("ENuzcbEgZq9j9BQCSgsFfvnMeX8aY7xGDizGyf29eByN");
+        const EXPECTED: Pubkey = pubkey!("ENuzcbEgZq9j9BQCSgsFfvnMeX8aY7xGDizGyf29eByN");
 
         const ID: u64 = 1722992406616756224;
         const OTHER_HANDLE: u64 = ID + 1;
