@@ -4,9 +4,11 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+x-link-utils = { workspace = true }
 
 # Cli
 clap = { workspace = true, features = ["derive"] }
+rpassword = { workspace = true }
 
 # Solana stuff
 solana-sdk = { workspace = true}

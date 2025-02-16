@@ -24,6 +24,12 @@ pub trait KeyGenerator<T> {
     fn generate_key(&self, data: T) -> Result<Keypair, Box<dyn std::error::Error>>;
 }
 
+impl KeyGenerator<u64> for KeyGen {
+    fn generate_key(&self, id: u64) -> Result<Keypair, Box<dyn std::error::Error>> {
+        Self::key_from_id_inner(**self, id)
+    }
+}
+
 impl KeyGenerator<&str> for KeyGen {
     fn generate_key(&self, handle: &str) -> Result<Keypair, Box<dyn std::error::Error>> {
         Self::key_from_handle_inner(**self, handle)
@@ -37,21 +43,21 @@ impl KeyGen {
         Ok(Self::from(seed))
     }
 
-    pub fn seed_for_handle(secret: [u8; 64], handle: &str) -> [u8; 64] {
+    fn seed_for_handle(secret: [u8; 64], handle: &str) -> [u8; 64] {
         let mut hasher = sha2::Sha512::new();
         hasher.update(secret);
         hasher.update(handle.as_bytes());
         hasher.finalize().into()
     }
 
-    pub fn key_from_handle_inner(
+    fn key_from_handle_inner(
         secret: [u8; 64],
         handle: &str,
     ) -> Result<Keypair, Box<dyn std::error::Error>> {
         Keypair::from_seed(&Self::seed_for_handle(secret, handle))
     }
 
-    pub fn key_from_id_inner(
+    fn key_from_id_inner(
         secret: [u8; 64],
         id: u64,
     ) -> Result<Keypair, Box<dyn std::error::Error>> {
@@ -60,10 +66,6 @@ impl KeyGen {
         let change = u32::from_be_bytes(id_bytes[4..8].try_into()?);
         let derivation_path = DerivationPath::new_bip44(Some(account), Some(change));
         Keypair::from_seed_and_derivation_path(&secret, Some(derivation_path))
-    }
-
-    pub fn key_from_id(&self, id: u64) -> Result<Keypair, Box<dyn std::error::Error>> {
-        Self::key_from_id_inner(**self, id)
     }
 }
 
@@ -85,11 +87,11 @@ mod tests {
 
         let keygen = KeyGen::from(*SECRET);
 
-        let keypair = keygen.key_from_id(ID).expect("Error generating key");
+        let keypair = keygen.generate_key(ID).expect("Error generating key");
         assert_eq!(keypair.pubkey(), EXPECTED);
 
         let other_keypair = keygen
-            .key_from_id(OTHER_HANDLE)
+            .generate_key(OTHER_HANDLE)
             .expect("Error generating key");
         assert_ne!(other_keypair.pubkey(), EXPECTED);
     }

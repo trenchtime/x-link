@@ -6,9 +6,11 @@ edition = "2021"
 [dependencies]
 x-link-types = { workspace = true }
 x-link-wallet = { workspace = true }
+x-link-utils = { workspace = true }
 
 # Cli
 clap = { workspace = true, features = ["derive"] }
+rpassword = { workspace = true }
 
 # Async
 tokio = { workspace = true, features = ["full"] }
@@ -18,6 +20,12 @@ http-body-util = { workspace = true}
 hyper= { workspace = true}
 serde = { workspace = true}
 serde_json = { workspace = true}
+hyper-util = { workspace = true, features = [
+    "client",
+    "client-legacy",
+    "http1",
+] }
+
 
 # Solana stuff
 solana-sdk = { workspace = true}

@@ -1,37 +1,36 @@
-
 use std::future::Future;
 use std::pin::Pin;
+use std::sync::Arc;
 
 use http_body_util::{BodyExt, Full};
 use hyper::body::{Buf, Bytes};
 use hyper::Response;
-use serde::{Deserialize, Serialize};
+use x_link_types::account::Account;
+use x_link_wallet::keygen::{KeyGen, KeyGenerator as _};
+
+use crate::message::{
+    BuyParams, CreateParams, GetAccountParams, RpcParams, RpcRequest, RpcResponse, SellParams,
+};
 
 #[derive(Clone)]
-// HttpSubscriber is a simple HTTP server that listens for POST requests and forwards the body of the request to a tokio mpsc channel.
-// This allows for easy channel-based communication between different machines.
-// This is useful for testing and debugging.
-// This is not production-ready stuff, TCP calls are kinda slow.
-pub struct HttpClient<T> {
+pub struct RpcClient {
+    keygen: Arc<KeyGen>,
 }
 
-
-impl<T> HttpClient<T>
-where
-    T: Message,
-{
-    pub fn start(port: u16) -> tokio::sync::mpsc::Receiver<T> {
-        let (tx, rx) = tokio::sync::mpsc::channel(1000);
-        let client = Self { tx };
-        tokio::spawn(async move {
-            if let Err(e) = client.run(port).await {
-                tracing::error!("error running server: {:?}", e);
-            }
-        });
-        rx
+impl RpcClient {
+    pub fn new(keygen: Arc<KeyGen>) -> Self {
+        Self { keygen }
     }
 
-    async fn run(self, port: u16) -> Result<(), Box<dyn std::error::Error>> {
+    pub async fn start(secret_file: &str, port: u16) -> Result<(), Box<dyn std::error::Error>> {
+        let passphrase = rpassword::prompt_password("Enter passphrase: ")?;
+        let keygen = KeyGen::load(secret_file, &passphrase)?;
+        let client = Self::new(Arc::new(keygen));
+        client.run(port).await
+    }
+
+    pub async fn run(self, port: u16) -> Result<(), Box<dyn std::error::Error>> {
+        tracing::debug!("starting rpc server on port: {}", port);
         let listener = tokio::net::TcpListener::bind(self.addr(port)).await?;
 
         loop {
@@ -56,12 +55,46 @@ where
             port,
         )
     }
+
+    fn get_account_by_id(&self, twitter_id: u64) -> Result<Account, Box<dyn std::error::Error>> {
+        Ok(Account {
+            twitter_id,
+            wallet: self.keygen.generate_key(twitter_id)?,
+        })
+    }
+
+    fn handle_buy(&self, id: u64, params: BuyParams) -> RpcResponse {
+        todo!()
+    }
+
+    fn handle_sell(&self, id: u64, params: SellParams) -> RpcResponse {
+        todo!()
+    }
+
+    fn handle_create(&self, id: u64, params: CreateParams) -> RpcResponse {
+        todo!()
+    }
+
+    fn handle_get_account(&self, id: u64, params: GetAccountParams) -> RpcResponse {
+        match self.get_account_by_id(params.twitter_id) {
+            Ok(account) => RpcResponse::ok(id).with_result(account),
+            Err(e) => RpcResponse::error(id, &e.to_string()),
+        }
+    }
+
+    #[tracing::instrument(skip(self))]
+    fn handle(&self, req: RpcRequest) -> RpcResponse {
+        tracing::debug!("handling request");
+        match req.params {
+            RpcParams::Buy(params) => self.handle_buy(req.id, params),
+            RpcParams::Sell(params) => self.handle_sell(req.id, params),
+            RpcParams::Create(params) => self.handle_create(req.id, params),
+            RpcParams::GetAccount(params) => self.handle_get_account(req.id, params),
+        }
+    }
 }
 
-impl<T> hyper::service::Service<hyper::Request<hyper::body::Incoming>> for HttpClient<T>
-where
-    T: Message + for<'de> Deserialize<'de>,
-{
+impl hyper::service::Service<hyper::Request<hyper::body::Incoming>> for RpcClient {
     type Response = Response<Full<Bytes>>;
     type Error = hyper::Error;
     type Future = Pin<Box<dyn Future<Output = Result<Self::Response, Self::Error>> + Send>>;
@@ -70,59 +103,25 @@ where
         let handler = self.clone();
         let future = async move {
             match (req.method(), req.uri().path()) {
-                (&hyper::Method::OPTIONS, _) => Ok(RpcResponse::Ok(()).into()),
+                (&hyper::Method::OPTIONS, _) => Ok(RpcResponse::ok(u64::MAX).into()),
                 (_, "/") => match req.collect().await {
                     Ok(body) => {
                         let whole_body = body.aggregate();
                         match serde_json::from_reader(whole_body.reader()) {
-                            Ok(msg) => {
-                                handler.tx.send(msg).await.expect("error sending message");
-                                Ok(RpcResponse::Ok(()).into())
-                            }
-                            Err(e) => {
-                                tracing::error!("error deserializing request body: {:?}", e);
-                                Ok(RpcResponse::Error(e.to_string()).into())
-                            }
+                            Ok(req) => Ok(handler.handle(req).into()),
+
+                            Err(e) => Ok(RpcResponse::error(u64::MAX, &e.to_string()).into()),
                         }
                     }
                     Err(e) => {
                         tracing::error!("error reading request body: {:?}", e);
-                        Ok((RpcResponse::Error(e.to_string())).into())
+                        Ok(RpcResponse::error(u64::MAX, &e.to_string()).into())
                     }
                 },
-                _ => Ok(RpcResponse::Error("not found".to_string()).into()),
+                _ => Ok(RpcResponse::error(u64::MAX, "not found").into()),
             }
         };
 
         Box::pin(future)
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use crate::http_sender::HttpSender;
-
-    use super::*;
-
-    #[tokio::test]
-    #[tracing_test::traced_test]
-    async fn test_sender_receiver_connection() {
-        let host = "localhost";
-        let port = 1339;
-        let addr = format!("http://{}:{}", host, port);
-
-        let sender = HttpSender::<String>::start(&addr);
-        let mut receiver = HttpClient::<String>::start(port);
-
-        let msg = "hello world".to_string();
-
-        sender
-            .send(msg.clone())
-            .await
-            .expect("error sending message");
-        let received = receiver.recv().await.expect("error receiving message");
-        assert_eq!(msg, received);
-        tracing::debug!("received: {:?}", received);
-    }
-}
-

@@ -9,6 +9,7 @@ members = [ "crates/*" ]
 x-link-wallet = { path = "crates/wallet" }
 x-link-client = { path = "crates/client" }
 x-link-types = { path = "crates/types" }
+x-link-utils = { path = "crates/utils" }
 
 tokio = { version = "1.10.0", features = ["full"] }
 
@@ -17,11 +18,19 @@ serde = "1.0.217"
 serde_json = "1.0.138"
 
 # Http
-hyper = "1.6.0"
+hyper = { version = "1.6.0", features = ["full"] }
 http-body-util = "0.1.2"
+
+http = "1.2.0"
+hyper-util = { version = "0.1.10", features = [
+    "client",
+    "client-legacy",
+    "http1",
+] }
 
 # Cli
 clap = { version = "4.5.28", features = ["derive"] }
+rpassword = "7.3.1"
 
 # Solana stuff
 solana-sdk = "2.2.0"

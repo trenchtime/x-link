@@ -1,16 +1,18 @@
 use crate::deserialize::pubkey_deserialize;
 use crate::serialize::pubkey_serialize;
+use http_body_util::Full;
+use hyper::body::Bytes;
 use serde::{Deserialize, Serialize};
 use solana_sdk::pubkey::Pubkey;
 use x_link_types::account::Account;
 
-#[derive(Serialize)]
+#[derive(Serialize, Debug)]
 pub struct RpcRequest {
     pub jsonrpc: String,
     pub id: u64,
     pub method: String,
     #[serde(flatten)]
-    pub params: Params,
+    pub params: RpcParams,
 }
 
 impl<'de> Deserialize<'de> for RpcRequest {
@@ -19,7 +21,7 @@ impl<'de> Deserialize<'de> for RpcRequest {
         D: serde::Deserializer<'de>,
     {
         use serde::de::Error;
-        #[derive(Deserialize)]
+        #[derive(Deserialize, Debug)]
         struct RawRequest {
             jsonrpc: String,
             id: u64,
@@ -31,14 +33,17 @@ impl<'de> Deserialize<'de> for RpcRequest {
 
         let params = match raw.method.as_str() {
             "buy" => serde_json::from_value(raw.params)
-                .map(Params::Buy)
+                .map(RpcParams::Buy)
                 .map_err(|e| D::Error::custom(format!("invalid buy params: {}", e)))?,
             "sell" => serde_json::from_value(raw.params)
-                .map(Params::Sell)
+                .map(RpcParams::Sell)
                 .map_err(|e| D::Error::custom(format!("invalid sell params: {}", e)))?,
             "create" => serde_json::from_value(raw.params)
-                .map(Params::Create)
+                .map(RpcParams::Create)
                 .map_err(|e| D::Error::custom(format!("invalid create params: {}", e)))?,
+            "getAccount" => serde_json::from_value(raw.params)
+                .map(RpcParams::GetAccount)
+                .map_err(|e| D::Error::custom(format!("invalid getAccount params: {}", e)))?,
             _ => return Err(D::Error::custom(format!("invalid method: {}", raw.method))),
         };
 
@@ -53,7 +58,7 @@ impl<'de> Deserialize<'de> for RpcRequest {
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct Response {
+pub struct RpcResponse {
     pub jsonrpc: String,
     pub id: u64,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -62,9 +67,43 @@ pub struct Response {
     pub error: Option<RpcError>,
 }
 
+impl From<Box<dyn std::error::Error>> for RpcResponse {
+    fn from(e: Box<dyn std::error::Error>) -> Self {
+        Self::error(u64::MAX, &e.to_string())
+    }
+}
+
+impl RpcResponse {
+    pub fn error(id: u64, message: &str) -> Self {
+        Self {
+            jsonrpc: "2.0".to_string(),
+            id,
+            result: None,
+            error: Some(RpcError::Error(message.to_string())),
+        }
+    }
+
+    pub fn ok(id: u64) -> Self {
+        Self {
+            jsonrpc: "2.0".to_string(),
+            id,
+            result: Some(RpcResult::Ok),
+            error: None,
+        }
+    }
+
+    pub fn with_result(mut self, result: Account) -> Self {
+        self.result = Some(RpcResult::Account(result));
+        self
+    }
+}
+
 #[derive(Serialize)]
 #[serde(untagged)]
+#[allow(clippy::large_enum_variant)]
 pub enum RpcResult {
+    #[serde(rename = "ok")]
+    Ok,
     Account(Account),
 }
 
@@ -74,56 +113,71 @@ pub enum RpcError {
     Error(String),
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 #[serde(tag = "method", content = "params")]
 #[serde(rename_all = "camelCase")]
-pub enum Params {
+pub enum RpcParams {
     Buy(BuyParams),
     Sell(SellParams),
     Create(CreateParams),
     GetAccount(GetAccountParams),
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct GetAccountParams {
-    pub twitter_id: String,
+    pub twitter_id: u64,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct BuyParams {
-    pub twitter_id: String,
+    pub twitter_id: u64,
     #[serde(deserialize_with = "pubkey_deserialize")]
     #[serde(serialize_with = "pubkey_serialize")]
     pub token_id: Pubkey,
     pub amount: u64,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct SellParams {
-    pub twitter_id: String,
+    pub twitter_id: u64,
     #[serde(deserialize_with = "pubkey_deserialize")]
     #[serde(serialize_with = "pubkey_serialize")]
     pub token_id: Pubkey,
     pub amount: u64,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct CreateParams {
-    pub twitter_id: String,
+    pub twitter_id: u64,
     pub amount: u64,
     pub token: TokenParams,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct TokenParams {
     pub name: String,
     pub ticker: String,
     pub uri: String,
     pub description: String,
+}
+
+// TODO: Expand this with more expressive errors
+impl From<RpcResponse> for hyper::Response<Full<Bytes>> {
+    fn from(res: RpcResponse) -> Self {
+        let mut response = hyper::Response::new(Full::from(
+            serde_json::to_vec(&res).expect("error serializing response"),
+        ));
+        *response.status_mut() = match (res.result, res.error) {
+            (Some(RpcResult::Ok), None) => hyper::StatusCode::OK,
+            (_, Some(RpcError::Error(_))) => hyper::StatusCode::BAD_REQUEST,
+            _ => hyper::StatusCode::INTERNAL_SERVER_ERROR,
+        };
+        response
+    }
 }
 
 #[cfg(test)]
@@ -152,8 +206,8 @@ mod tests {
         assert_eq!(request.method, "buy");
 
         match request.params {
-            Params::Buy(ref params) => {
-                assert_eq!(params.twitter_id, "123456");
+            RpcParams::Buy(ref params) => {
+                assert_eq!(params.twitter_id, 123456);
                 assert_eq!(params.token_id, token_id);
                 assert_eq!(params.amount, 100);
             }
@@ -186,8 +240,8 @@ mod tests {
         assert_eq!(request.method, "sell");
 
         match request.params {
-            Params::Sell(ref params) => {
-                assert_eq!(params.twitter_id, "789012");
+            RpcParams::Sell(ref params) => {
+                assert_eq!(params.twitter_id, 789012);
                 assert_eq!(params.token_id, token_id);
                 assert_eq!(params.amount, 50);
             }
@@ -224,8 +278,8 @@ mod tests {
         assert_eq!(request.method, "create");
 
         match request.params {
-            Params::Create(ref params) => {
-                assert_eq!(params.twitter_id, "345678");
+            RpcParams::Create(ref params) => {
+                assert_eq!(params.twitter_id, 345678);
                 assert_eq!(params.amount, 1000);
                 assert_eq!(params.token.name, "Test Token");
                 assert_eq!(params.token.ticker, "TEST");
@@ -242,69 +296,39 @@ mod tests {
 
     #[test]
     fn test_response_ok() {
-        let response_json = json!({
+        let expected_json = json!({
             "jsonrpc": "2.0",
             "id": 1,
-            "result": {
-                "status": "ok"
-            }
+            "result": "ok"
         });
 
-        let response: Response = serde_json::from_value(response_json.clone()).unwrap();
+        let response = RpcResponse {
+            jsonrpc: "2.0".to_string(),
+            id: 1,
+            result: Some(RpcResult::Ok),
+            error: None,
+        };
 
-        assert_eq!(response.jsonrpc, "2.0");
-        assert_eq!(response.id, 1);
-
-        match response.result {
-            Some(RpcResult::Account(ref account)) => {
-                assert_eq!(account.status, "ok");
-            }
-            _ => panic!("Expected Account result"),
-        }
-
-        // Test serialization
         let serialized = serde_json::to_value(&response).unwrap();
-        assert_eq!(serialized, response_json);
+        assert_eq!(serialized, expected_json);
     }
 
     #[test]
     fn test_response_error() {
-        let response_json = json!({
+        let expected_json = json!({
             "jsonrpc": "2.0",
             "id": 1,
-            "result": {
-                "status": "error",
-                "Error": "Operation failed"
-            }
+            "error": "Operation failed"
         });
 
-        let response: Response = serde_json::from_value(response_json.clone()).unwrap();
+        let response = RpcResponse {
+            jsonrpc: "2.0".to_string(),
+            id: 1,
+            result: None,
+            error: Some(RpcError::Error("Operation failed".to_string())),
+        };
 
-        assert_eq!(response.jsonrpc, "2.0");
-        assert_eq!(response.id, 1);
-
-        match response.error {
-            Some(RpcError::Error(ref err)) => {
-                assert_eq!(err, "Operation failed");
-            }
-            _ => panic!("Expected Error result"),
-        }
-
-        // Test serialization
-        let serialized = serde_json::to_value(response).unwrap();
-        assert_eq!(serialized, response_json);
+        let serialized = serde_json::to_value(&response).unwrap();
+        assert_eq!(serialized, expected_json);
     }
 }
-
-//impl From<RpcResponse> for hyper::Response<Full<Bytes>> {
-//    fn from(res: RpcResponse) -> Self {
-//        let mut response = hyper::Response::new(Full::from(
-//            serde_json::to_vec(&res).expect("error serializing response"),
-//        ));
-//        *response.status_mut() = match res {
-//            RpcResponse::Ok(_) => hyper::StatusCode::OK,
-//            RpcResponse::Error(_) => hyper::StatusCode::INTERNAL_SERVER_ERROR,
-//        };
-//        response
-//    }
-//}

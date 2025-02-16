@@ -2,7 +2,7 @@ use serde::{ser::SerializeStruct as _, Serialize, Serializer};
 use solana_sdk::{signature::Keypair, signer::Signer as _};
 
 pub struct Account {
-    pub twitter_id: String,
+    pub twitter_id: u64,
     pub wallet: Keypair,
 }
 
@@ -27,12 +27,12 @@ mod tests {
     #[test]
     fn test_serialize_account() {
         let account = Account {
-            twitter_id: "123456".to_string(),
+            twitter_id: 123456,
             wallet: Keypair::new(),
         };
 
         let expected = json!({
-            "twitter_id": "123456",
+            "twitter_id": 123456,
             "wallet": account.wallet.pubkey().to_string(),
         });
 
