@@ -7,6 +7,18 @@ resolver = "2"
 members = [ "crates/*" ]
 [workspace.dependencies]
 x-link-wallet = { path = "crates/wallet" }
+x-link-client = { path = "crates/client" }
+x-link-types = { path = "crates/types" }
+
+tokio = { version = "1.10.0", features = ["full"] }
+
+# Json
+serde = "1.0.217"
+serde_json = "1.0.138"
+
+# Http
+hyper = "1.6.0"
+http-body-util = "0.1.2"
 
 # Cli
 clap = { version = "4.5.28", features = ["derive"] }
@@ -15,6 +27,7 @@ clap = { version = "4.5.28", features = ["derive"] }
 solana-sdk = "2.2.0"
 bip39 = "2.1.0"
 sha2 = "0.10.8"
+bs58 = "0.5.1"
 
 # Logging
 tracing = "0.1.41"

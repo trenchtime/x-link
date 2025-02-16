@@ -1,7 +1,7 @@
 use sha2::Digest;
 use solana_sdk::{
     derivation_path::DerivationPath,
-    signer::{keypair::Keypair, SeedDerivable as _, Signer as _},
+    signer::{keypair::Keypair, SeedDerivable as _},
 };
 
 pub struct KeyGen([u8; 64]);
@@ -51,10 +51,6 @@ impl KeyGen {
         Keypair::from_seed(&Self::seed_for_handle(secret, handle))
     }
 
-    pub fn key_from_handle(&self, handle: &str) -> Result<XKey, Box<dyn std::error::Error>> {
-        Self::key_from_handle_inner(**self, handle).map(|key| XKey::new(handle, key))
-    }
-
     pub fn key_from_id_inner(
         secret: [u8; 64],
         id: u64,
@@ -71,62 +67,11 @@ impl KeyGen {
     }
 }
 
-pub struct XKey {
-    pub handle: String,
-    pub keypair: Keypair,
-}
-
-impl std::fmt::Debug for XKey {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("XKey")
-            .field("handle", &self.handle)
-            .field("key", &self.keypair.pubkey())
-            .finish()
-    }
-}
-
-impl XKey {
-    pub fn new(handle: &str, keypair: Keypair) -> XKey {
-        XKey {
-            handle: handle.to_string(),
-            keypair,
-        }
-    }
-}
-
-impl std::ops::Deref for XKey {
-    type Target = Keypair;
-
-    fn deref(&self) -> &Self::Target {
-        &self.keypair
-    }
-}
-
 #[cfg(test)]
 mod tests {
-    use solana_sdk::pubkey::Pubkey;
+    use solana_sdk::{pubkey::Pubkey, signer::Signer};
 
     use super::*;
-
-    #[test]
-    fn test_x_key_from_handle() {
-        const HANDLE: &str = "@burckmeister";
-        const OTHER_HANDLE: &str = "@somefag";
-        const SECRET: &[u8; 64] =
-            b"What the fuck did you just fucking say about me you little bitch";
-        const EXPECTED: Pubkey =
-            Pubkey::from_str_const("8C4ygxmS69xS3LA5Z5gHTU5S2NR9cAKbMThftXoZMEHe");
-
-        let keygen = KeyGen::from(*SECRET);
-        let keypair = keygen
-            .key_from_handle(HANDLE)
-            .expect("Error generating key");
-        assert_eq!(keypair.pubkey(), EXPECTED);
-        let other_keypair = keygen
-            .key_from_handle(OTHER_HANDLE)
-            .expect("Error generating key");
-        assert_ne!(other_keypair.pubkey(), EXPECTED);
-    }
 
     #[test]
     fn test_x_key_from_id() {
@@ -140,9 +85,7 @@ mod tests {
 
         let keygen = KeyGen::from(*SECRET);
 
-        let keypair = keygen
-            .key_from_id(ID)
-            .expect("Error generating key");
+        let keypair = keygen.key_from_id(ID).expect("Error generating key");
         assert_eq!(keypair.pubkey(), EXPECTED);
 
         let other_keypair = keygen
