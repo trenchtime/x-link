@@ -6,6 +6,12 @@ pub struct Account {
     pub wallet: Keypair,
 }
 
+impl Account {
+    pub fn new(twitter_id: u64, wallet: Keypair) -> Self {
+        Self { twitter_id, wallet }
+    }
+}
+
 impl std::ops::Deref for Account {
     type Target = Keypair;
 
