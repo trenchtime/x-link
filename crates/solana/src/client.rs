@@ -7,6 +7,7 @@ use crate::{
     fresh_hash::FreshHash,
 };
 use dashmap::DashMap;
+use jupiter_swap_api_client::quote::QuoteResponse;
 use solana_client::nonblocking::rpc_client::RpcClient;
 use solana_sdk::{pubkey::Pubkey, signature::Signature, transaction::Transaction};
 use x_link_types::account::Account;
@@ -115,5 +116,14 @@ impl Client {
                 .await?,
         )
         .await
+    }
+
+    pub async fn quote(
+        &self,
+        input_mint: Pubkey,
+        output_mint: Pubkey,
+        amount: u64,
+    ) -> Result<QuoteResponse, Error> {
+        self.jup.quote(input_mint, output_mint, amount).await
     }
 }

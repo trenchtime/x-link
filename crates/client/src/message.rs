@@ -4,6 +4,7 @@ use http_body_util::Full;
 use hyper::body::Bytes;
 use serde::{Deserialize, Serialize};
 use solana_sdk::{pubkey::Pubkey, signature::Signature};
+use x_link_solana::QuoteResponse;
 use x_link_types::account::Account;
 
 #[derive(Serialize, Debug)]
@@ -101,6 +102,11 @@ impl RpcResponse {
         self.result = Some(RpcResult::Signature(signature));
         self
     }
+
+    pub fn with_quote(mut self, quote: QuoteResponse) -> Self {
+        self.result = Some(RpcResult::Quote(quote));
+        self
+    }
 }
 
 #[derive(Serialize)]
@@ -111,6 +117,7 @@ pub enum RpcResult {
     Ok,
     Account(Account),
     Signature(Signature),
+    Quote(QuoteResponse),
 }
 
 #[derive(Serialize)]
@@ -127,6 +134,7 @@ pub enum RpcParams {
     Sell(SellParams),
     Create(CreateParams),
     GetAccount(GetAccountParams),
+    Quote(QuoteParams),
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -152,6 +160,14 @@ pub struct SellParams {
     #[serde(deserialize_with = "pubkey_deserialize")]
     #[serde(serialize_with = "pubkey_serialize")]
     pub token_id: Pubkey,
+    pub amount: u64,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct QuoteParams {
+    pub input_mint: Pubkey,
+    pub output_mint: Pubkey,
     pub amount: u64,
 }
 

@@ -12,20 +12,21 @@ use x_link_wallet::keygen::{KeyGen, KeyGenerator as _};
 use crate::error::Error;
 
 use crate::message::{
-    BuyParams, CreateParams, GetAccountParams, RpcParams, RpcRequest, RpcResponse, SellParams,
+    BuyParams, CreateParams, GetAccountParams, QuoteParams, RpcParams, RpcRequest, RpcResponse,
+    SellParams,
 };
 
 #[derive(Clone)]
 pub struct RpcClient {
     keygen: Arc<KeyGen>,
-    solana: Arc<x_link_solana::client::Client>,
+    backend: Arc<x_link_solana::client::Client>,
 }
 
 impl RpcClient {
     pub fn new(keygen: Arc<KeyGen>) -> Self {
         Self {
             keygen,
-            solana: Arc::new(x_link_solana::client::Client::default()),
+            backend: Arc::new(x_link_solana::client::Client::default()),
         }
     }
 
@@ -84,7 +85,7 @@ impl RpcClient {
         params: BuyParams,
     ) -> Result<Signature, Error> {
         Ok(self
-            .solana
+            .backend
             .buy(&account, &params.token_id, params.amount)
             .await?)
     }
@@ -95,7 +96,7 @@ impl RpcClient {
         params: SellParams,
     ) -> Result<Signature, Error> {
         Ok(self
-            .solana
+            .backend
             .sell(&account, &params.token_id, params.amount)
             .await?)
     }
@@ -120,6 +121,17 @@ impl RpcClient {
         }
     }
 
+    async fn handle_quote(&self, id: u64, params: QuoteParams) -> RpcResponse {
+        match self
+            .backend
+            .quote(params.input_mint, params.output_mint, params.amount)
+            .await
+        {
+            Ok(quote) => RpcResponse::ok(id).with_quote(quote),
+            Err(e) => RpcResponse::error(id, &e.to_string()),
+        }
+    }
+
     fn handle_create(&self, id: u64, params: CreateParams) -> RpcResponse {
         todo!()
     }
@@ -139,6 +151,7 @@ impl RpcClient {
             RpcParams::Sell(params) => self.handle_sell(req.id, params).await,
             RpcParams::Create(params) => self.handle_create(req.id, params),
             RpcParams::GetAccount(params) => self.handle_get_account(req.id, params),
+            RpcParams::Quote(params) => self.handle_quote(req.id, params).await,
         }
     }
 }
